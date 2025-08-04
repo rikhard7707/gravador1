@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>gravador1</title>
+</head>
+<body>
+  <h2>Gravador de Áudio </h2>
+
+  <button id="startBtn">🎙️ Iniciar Gravação</button>
+  <button id="stopBtn">⏹️ Parar Gravação</button>
+  <br><br>
+  <audio id="audioPlayback" controls></audio>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+
+document.getElementById("startBtn").onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  audioChunks = [];
+
+  mediaRecorder.ondataavailable = event => {
+    if (event.data.size > 0) {
+      audioChunks.push(event.data);
+    }
+  };
+
+  mediaRecorder.onstop = () => {
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    const audioUrl = URL.createObjectURL(audioBlob);
+    document.getElementById("audioPlayback").src = audioUrl;
+  };
+
+  mediaRecorder.start();
+  alert("Gravando...");
+};
+
+document.getElementById("stopBtn").onclick = () => {
+  if (mediaRecorder) {
+    mediaRecorder.stop();
+    alert("Gravação parada.");
+  }
+};
+</script>
+</body>
+</html>
