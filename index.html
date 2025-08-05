@@ -1,48 +1,112 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>gravador1</title>
+  <meta charset="UTF-8" />
+  <title>Robô Rik - Reconhecimento de Voz em Tempo Real</title>
 </head>
 <body>
-  <h2>Gravador de Áudio </h2>
+  <h2>🤖 Robô Rik</h2>
+  <p>Clique em "Começar Gravação" e fale sua pergunta. Veja o texto aparecer em tempo real.</p>
 
-  <button id="startBtn">🎙️ Iniciar Gravação</button>
-  <button id="stopBtn">⏹️ Parar Gravação</button>
+  <button id="btnStart">🎤 Começar Gravação</button>
+  <button id="btnStop">🛑 Parar Gravação</button>
+  <button id="btnExport">📝 Exportar perguntas não respondidas</button>
   <br><br>
-  <audio id="audioPlayback" controls></audio>
 
-<script>
-let mediaRecorder;
-let audioChunks = [];
+  <audio id="audioPlayer" controls></audio>
+  <p><strong>Status:</strong> <span id="status">Aguardando ação...</span></p>
+  <p><strong>Você está dizendo:</strong> <span id="textoAoVivo">...</span></p>
 
-document.getElementById("startBtn").onclick = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks = [];
+  <script>
+    const respostas = {
+      "qual é a capital da frança": "paris.mp3",
+      "qual é o seu nome": "robo_rik.mp3"
+      // Adicione aqui suas perguntas e arquivos de áudio
+    };
 
-  mediaRecorder.ondataavailable = event => {
-    if (event.data.size > 0) {
-      audioChunks.push(event.data);
+    let perguntasNaoRespondidas = JSON.parse(localStorage.getItem('perguntasNaoRespondidas') || '[]');
+
+    const statusEl = document.getElementById('status');
+    const textoAoVivoEl = document.getElementById('textoAoVivo');
+    const audioPlayer = document.getElementById('audioPlayer');
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Seu navegador não suporta Web Speech API. Use o Google Chrome.");
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.interimResults = true;  // Permite resultados parciais
+      recognition.continuous = true;      // Escuta continuamente até parar
+
+      recognition.onstart = () => {
+        statusEl.textContent = "🎤 Gravando...";
+      };
+
+      recognition.onerror = (event) => {
+        statusEl.textContent = "⚠️ Erro: " + event.error;
+      };
+
+      recognition.onend = () => {
+        statusEl.textContent = "🛑 Gravação parada.";
+      };
+
+      recognition.onresult = (event) => {
+        let textoFinal = "";
+        let textoParcial = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            textoFinal += result[0].transcript;
+          } else {
+            textoParcial += result[0].transcript;
+          }
+        }
+
+        // Exibe o que está sendo falado em tempo real
+        textoAoVivoEl.textContent = textoFinal + textoParcial;
+
+        // Quando fala finaliza (aperta parar ou silêncio longo)
+        if (textoFinal) {
+          const pergunta = textoFinal.toLowerCase().trim();
+
+          if (respostas[pergunta]) {
+            audioPlayer.src = respostas[pergunta];
+            audioPlayer.play();
+          } else {
+            perguntasNaoRespondidas.push(pergunta);
+            localStorage.setItem('perguntasNaoRespondidas', JSON.stringify(perguntasNaoRespondidas));
+            alert('❌ Pergunta não cadastrada. Salva para revisão.');
+          }
+        }
+      };
+
+      document.getElementById('btnStart').onclick = () => {
+        textoAoVivoEl.textContent = "";
+        recognition.start();
+      };
+
+      document.getElementById('btnStop').onclick = () => {
+        recognition.stop();
+      };
+
+      document.getElementById('btnExport').onclick = () => {
+        if (perguntasNaoRespondidas.length === 0) {
+          alert("Nenhuma pergunta pendente para exportar.");
+          return;
+        }
+        const texto = perguntasNaoRespondidas.join("\n");
+        const blob = new Blob([texto], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "perguntas_nao_respondidas.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
     }
-  };
-
-  mediaRecorder.onstop = () => {
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const audioUrl = URL.createObjectURL(audioBlob);
-    document.getElementById("audioPlayback").src = audioUrl;
-  };
-
-  mediaRecorder.start();
-  alert("Gravando...");
-};
-
-document.getElementById("stopBtn").onclick = () => {
-  if (mediaRecorder) {
-    mediaRecorder.stop();
-    alert("Gravação parada.");
-  }
-};
-</script>
+  </script>
 </body>
 </html>
